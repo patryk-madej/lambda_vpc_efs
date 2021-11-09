@@ -1,0 +1,148 @@
+service: vpc-proof-of-concept
+frameworkVersion: '2'
+
+provider:
+  name: aws
+  runtime: python3.8
+  lambdaHashingVersion: 20201221
+  profile: patryk
+  region: us-west-2
+  iam:
+    role:
+      statements:
+        - Effect: 'Allow'
+          Action:
+            - sqs:*
+            - efs:*
+          Resource: "*"
+
+  environment:
+    QUEUE_URL: ${construct:my-queue.queueUrl}
+
+functions:
+  hello:
+    handler: lambdas/producer.lambda_handler
+#    NOTE: Please make sure to change your handler code to work with those events
+#    Check the event documentation for details
+    events:
+     - httpApi:
+         path: /send
+         method: get
+#      - websocket: $connect
+#      - s3: ${env:BUCKET}
+#      - schedule: rate(10 minutes)
+#      - sns: greeter-topic
+#      - stream: arn:aws:dynamodb:region:XXXXXX:table/foo/stream/1970-01-01T00:00:00.000
+#      - alexaSkill: amzn1.ask.skill.xx-xx-xx-xx
+#      - alexaSmartHome: amzn1.ask.skill.xx-xx-xx-xx
+#      - iot:
+#          sql: "SELECT * FROM 'some_topic'"
+#      - cloudwatchEvent:
+#          event:
+#            source:
+#              - "aws.ec2"
+#            detail-type:
+#              - "EC2 Instance State-change Notification"
+#            detail:
+#              state:
+#                - pending
+#      - cloudwatchLog: '/aws/lambda/hello'
+#      - cognitoUserPool:
+#          pool: MyUserPool
+#          trigger: PreSignUp
+#      - alb:
+#          listenerArn: arn:aws:elasticloadbalancing:us-east-1:XXXXXX:listener/app/my-load-balancer/50dc6c495c0c9188/
+#          priority: 1
+#          conditions:
+#            host: example.com
+#            path: /hello
+
+#    Define function environment variables here
+#    environment:
+#      variable2: value2
+
+# you can add CloudFormation resource templates here
+#resources:
+#  Resources:
+#    NewResource:
+#      Type: AWS::S3::Bucket
+#      Properties:
+#        BucketName: my-new-bucket
+#  Outputs:
+#     NewOutput:
+#       Description: "Description for the output"
+#       Value: "Some output value"
+
+
+
+constructs:
+  my-queue:
+    type: queue
+    worker:
+      handler: lambdas/worker.lambda_handler
+
+package:
+  individually: true
+  exclude:
+    - node_modules/**
+    - .serverless/**
+    - .old/**
+
+plugins:
+  - serverless-lift
+  - serverless-vpc-plugin
+custom:
+  # pythonRequirements:
+  #   dockerizePip: non-linux
+  #   slim: true
+  #   strip: false
+  #   noDeploy:
+  #     - moto
+  #     - pytest
+  
+  vpcConfig:
+    # Whether plugin is enabled. Can be used to selectively disable plugin
+    # on certain stages or configurations. Defaults to true.
+    enabled: true
+
+    cidrBlock: '10.0.0.0/16'
+
+    # if createNatGateway is a boolean "true", a NAT Gateway and EIP will be provisioned in each zone
+    # if createNatGateway is a number, that number of NAT Gateways will be provisioned
+    createNatGateway: true
+
+    # When enabled, the DB subnet will only be accessible from the Application subnet
+    # Both the Public and Application subnets will be accessible from 0.0.0.0/0
+    createNetworkAcl: false
+
+    # # Whether to create the DB subnet
+    # createDbSubnet: true
+
+    # Whether to enable VPC flow logging to an S3 bucket
+    createFlowLogs: false
+
+    # # Whether to create a bastion host
+    # createBastionHost: false
+    # bastionHostKeyName: MyKey # required if creating a bastion host
+
+    # Whether to create a NAT instance
+    createNatInstance: false
+
+    # Whether to create AWS Systems Manager (SSM) Parameters
+    createParameters: false
+
+    # # By default, S3 and DynamoDB endpoints will be available within the VPC
+    # # see https://docs.aws.amazon.com/vpc/latest/userguide/vpc-endpoints.html
+    # # for a list of available service endpoints to provision within the VPC
+    # # (varies per region)
+    # services:
+    #   - kms
+    #   - secretsmanager
+
+    # # Optionally specify subnet groups to create. If not provided, subnet groups
+    # # for RDS, Redshift, ElasticCache and DAX will be provisioned.
+    # subnetGroups:
+    #   - rds
+
+    # Whether to export stack outputs so it may be consumed by other stacks
+    exportOutputs: false
