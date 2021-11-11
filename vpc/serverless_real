@@ -1,6 +1,8 @@
 service: vpc-proof-of-concept
 frameworkVersion: '2'
 
+# efs lambda tutorial: https://dzone.com/articles/how-to-use-efs-with-aws-lambda
+
 provider:
   name: aws
   runtime: python3.8
@@ -20,7 +22,7 @@ provider:
     QUEUE_URL: ${construct:my-queue.queueUrl}
 
 functions:
-  hello:
+  producer:
     handler: lambdas/producer.lambda_handler
 #    NOTE: Please make sure to change your handler code to work with those events
 #    Check the event documentation for details
@@ -28,52 +30,6 @@ functions:
      - httpApi:
          path: /send
          method: get
-#      - websocket: $connect
-#      - s3: ${env:BUCKET}
-#      - schedule: rate(10 minutes)
-#      - sns: greeter-topic
-#      - stream: arn:aws:dynamodb:region:XXXXXX:table/foo/stream/1970-01-01T00:00:00.000
-#      - alexaSkill: amzn1.ask.skill.xx-xx-xx-xx
-#      - alexaSmartHome: amzn1.ask.skill.xx-xx-xx-xx
-#      - iot:
-#          sql: "SELECT * FROM 'some_topic'"
-#      - cloudwatchEvent:
-#          event:
-#            source:
-#              - "aws.ec2"
-#            detail-type:
-#              - "EC2 Instance State-change Notification"
-#            detail:
-#              state:
-#                - pending
-#      - cloudwatchLog: '/aws/lambda/hello'
-#      - cognitoUserPool:
-#          pool: MyUserPool
-#          trigger: PreSignUp
-#      - alb:
-#          listenerArn: arn:aws:elasticloadbalancing:us-east-1:XXXXXX:listener/app/my-load-balancer/50dc6c495c0c9188/
-#          priority: 1
-#          conditions:
-#            host: example.com
-#            path: /hello
-
-#    Define function environment variables here
-#    environment:
-#      variable2: value2
-
-# you can add CloudFormation resource templates here
-#resources:
-#  Resources:
-#    NewResource:
-#      Type: AWS::S3::Bucket
-#      Properties:
-#        BucketName: my-new-bucket
-#  Outputs:
-#     NewOutput:
-#       Description: "Description for the output"
-#       Value: "Some output value"
-
-
 
 constructs:
   my-queue:
@@ -89,16 +45,27 @@ package:
     - .old/**
 
 plugins:
-  - serverless-lift
-  - serverless-vpc-plugin
+  - serverless-lift #for sqs
+  - serverless-vpc-plugin #for vpc
+  - serverless-default-aws-resource-properties #for efs
+
+
+resources:
+  Resources:
+    producer:
+      Type: AWS::Lambda::Function
+    worker:
+      Type: AWS::Lambda::Function
+
+
 custom:
-  # pythonRequirements:
-  #   dockerizePip: non-linux
-  #   slim: true
-  #   strip: false
-  #   noDeploy:
-  #     - moto
-  #     - pytest
+
+  defaultAwsProperties:
+    - Type: AWS::Lambda::Function
+      Properties:
+        FileSystemConfigs:
+          - Arn: { 'Fn::GetAtt': [ efsAP, Arn ] }
+            LocalMountPath: ${self:custom.fsPath}
   
   vpcConfig:
     # Whether plugin is enabled. Can be used to selectively disable plugin
@@ -131,13 +98,12 @@ custom:
     # Whether to create AWS Systems Manager (SSM) Parameters
     createParameters: false
 
-    # # By default, S3 and DynamoDB endpoints will be available within the VPC
-    # # see https://docs.aws.amazon.com/vpc/latest/userguide/vpc-endpoints.html
-    # # for a list of available service endpoints to provision within the VPC
-    # # (varies per region)
-    # services:
-    #   - kms
-    #   - secretsmanager
+    # By default, S3 and DynamoDB endpoints will be available within the VPC
+    # see https://docs.aws.amazon.com/vpc/latest/userguide/vpc-endpoints.html
+    # for a list of available service endpoints to provision within the VPC
+    # (varies per region)
+    services:
+      - sqs
 
     # # Optionally specify subnet groups to create. If not provided, subnet groups
     # # for RDS, Redshift, ElasticCache and DAX will be provisioned.

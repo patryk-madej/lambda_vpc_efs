@@ -1,0 +1,168 @@
+service: efs-proof-of-concept
+frameworkVersion: '2'
+
+# efs lambda tutorial: https://dzone.com/articles/how-to-use-efs-with-aws-lambda
+
+provider:
+  name: aws
+  runtime: python3.8
+  lambdaHashingVersion: 20201221
+  profile: patryk
+  region: us-west-2
+
+  iam:
+    role:
+      statements:
+        - Effect: 'Allow'
+          Action:
+            - sqs:*
+            - efs:*
+          Resource: "*"
+  
+  vpc:
+    securityGroupIds:
+      - !GetAtt MountTargetVPC.DefaultSecurityGroup
+    subnetIds:
+      - Ref: SubnetResource1
+      - Ref: SubnetResource2
+
+  environment:
+    ACCOUNT_ID: ${aws:accountId}
+  #   QUEUE_URL: ${construct:my-queue.queueUrl}
+
+functions:
+  producer:
+    handler: lambdas/producer.lambda_handler
+    fileSystemConfig:
+      localMountPath: /mnt/test
+      arn: 
+        Fn::GetAtt: [ AccessPointResource, Arn ]
+    # events:
+    #  - httpApi:
+    #      path: /send
+    #      method: get
+    dependsOn:
+      - AccessPointResource
+      - MountTargetResource1
+      - MountTargetResource2
+    
+
+# constructs:
+#   my-queue:
+#     type: queue
+#     worker:
+#       handler: lambdas/worker.lambda_handler
+
+package:
+  individually: true
+  exclude:
+    - node_modules/**
+    - .serverless/**
+    - .old/**
+    - .dev/**
+
+plugins:
+  - serverless-lift
+  # - serverless-default-aws-resource-properties
+resources:
+  Resources:
+    # producer:
+    #   Type: AWS::Lambda::Function
+    # worker:
+    #   Type: AWS::Lambda::Function
+
+    # docs: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-efs-filesystem.html
+    MountTargetVPC:
+      Type: AWS::EC2::VPC
+      Properties:
+        CidrBlock: 172.31.0.0/16
+  
+    SubnetResource1:
+      Type: AWS::EC2::Subnet
+      Properties:
+        CidrBlock: 172.31.1.0/24
+        VpcId: !Ref MountTargetVPC
+        AvailabilityZone: !Sub ${self:provider.region}a
+
+    SubnetResource2:
+      Type: AWS::EC2::Subnet
+      Properties:
+        CidrBlock: 172.31.2.0/24
+        VpcId: !Ref MountTargetVPC
+        AvailabilityZone: !Sub ${self:provider.region}b
+
+    # SubnetResource3:
+    #   Type: AWS::EC2::Subnet
+    #   Properties:
+    #     CidrBlock: 172.31.3.0/24
+    #     VpcId: !Ref MountTargetVPC
+    #     AvailabilityZone: ${self:provider.region}c
+    
+    FileSystemResource:
+      Type: AWS::EFS::FileSystem
+      Properties: 
+        Encrypted: true
+
+
+    MountTargetResource1:
+      Type: AWS::EFS::MountTarget
+      Properties:
+        FileSystemId: !Ref FileSystemResource
+        SubnetId: !Ref SubnetResource1
+        SecurityGroups:
+          # - sg-0bc8451b3a5c372a5
+        - !GetAtt MountTargetVPC.DefaultSecurityGroup
+
+    MountTargetResource2:
+      Type: AWS::EFS::MountTarget
+      Properties:
+        FileSystemId: !Ref FileSystemResource
+        SubnetId: !Ref SubnetResource2
+        SecurityGroups:
+          # - sg-0bc8451b3a5c372a5
+        - !GetAtt MountTargetVPC.DefaultSecurityGroup
+
+    # MountTargetResource3:
+    #   Type: AWS::EFS::MountTarget
+    #   Properties:
+    #     FileSystemId: !Ref FileSystemResource
+    #     SubnetId: !Ref SubnetResource3
+    #     SecurityGroups:
+    #       - sg-0bc8451b3a5c372a5
+    #     # - !GetAtt MountTargetVPC.DefaultSecurityGroup
+
+    # MountTarget1: 
+    #   Type: AWS::EFS::MountTarget
+    #   Properties: 
+    #     FileSystemId: 
+    #       Ref: "EFS"
+    #     SubnetId: subnet-05278c2f2eef9cbd8
+    #       # Ref: "Subnet"
+    #     SecurityGroups: 
+    #       - sg-0bc8451b3a5c372a5
+    #       # - Ref: "MountTargetSecurityGroup"
+
+    AccessPointResource:
+      Type: 'AWS::EFS::AccessPoint'
+      Properties:
+        FileSystemId: !Ref FileSystemResource
+        PosixUser:
+          Uid: "1000"
+          Gid: "1000"
+        RootDirectory:
+          CreationInfo:
+            OwnerGid: "1000"
+            OwnerUid: "1000"
+            Permissions: "0777"
+          Path: "/efs"
+
+
+
+# custom:
+
+#   defaultAwsProperties:
+#     - Type: AWS::Lambda::Function
+#       Properties:
+#         FileSystemConfigs:
+#           - Arn: { 'Fn::GetAtt': [ efsAP, Arn ] }
+#             LocalMountPath: ${self:custom.fsPath}
