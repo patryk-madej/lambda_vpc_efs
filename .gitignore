@@ -1,3 +1,5 @@
 .old
 .serverless
+.dev
 node_modules
+vpc
