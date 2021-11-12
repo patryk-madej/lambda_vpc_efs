@@ -1,6 +1,0 @@
-{
-  "devDependencies": {
-    "serverless-lift": "^1.11.0",
-    "serverless-vpc-plugin": "^1.0.4"
-  }
-}
