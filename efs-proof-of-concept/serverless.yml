@@ -1,0 +1,76 @@
+service: efs-proof-of-concept
+
+provider:
+  name: aws
+  runtime: python3.8
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-east-1'}
+  versionFunctions: false
+  deploymentBucket:
+    serverSideEncryption: AES256
+    blockPublicAccess: true
+
+  environment: #shared
+    QUEUE_URL: ${construct:my-queue.queueUrl}
+
+functions:
+  producer:
+    handler: lambdas/producer/producer.lambda_handler
+    events:
+     - httpApi:
+         path: /send
+         method: get
+
+    fileSystemConfig:
+      localMountPath: /mnt/efs0
+      arn:
+        'Fn::GetAtt': [ EFSAccessPoint, Arn ]
+    dependsOn:
+      - EFSMountTarget1
+      - EFSMountTarget2
+    environment: #local
+      LOCAL_MOUNT_PATH: /mnt/efs0 #its own mount path
+
+constructs:
+  my-queue: #doc: https://github.com/getlift/lift/blob/master/docs/queue.md
+    type: queue
+    worker:
+      handler: lambdas/worker/worker.lambda_handler
+
+      fileSystemConfig:
+        localMountPath: /mnt/efs0
+        arn:
+          'Fn::GetAtt': [ EFSAccessPoint, Arn ]
+      dependsOn:
+        - EFSMountTarget1
+        - EFSMountTarget2
+      environment: #local
+        LOCAL_MOUNT_PATH: /mnt/efs0 #its own mount path
+
+custom:
+  vpcConfig:
+    cidrBlock: "10.0.0.0/16"
+    createDbSubnet: false
+    createNatInstance: false
+    createNatGateway: true
+    createParameters: true
+    zones:
+      - ${self:provider.region}a #AppSubnet1
+      - ${self:provider.region}b #AppSubnet2
+    services: 
+      - sqs
+
+plugins:
+  - serverless-lift #for sqs
+  - serverless-vpc-plugin #for vpc
+package:
+  individually: true
+  excludeDevDependencies: true
+  exclude:
+    - node_modules/**
+    - .serverless/**
+    - .old/**
+    - .dev/**
+
+resources:
+  - ${file(serverless_efs_cf.yml)} #efs and related resources defined with cloudformation
