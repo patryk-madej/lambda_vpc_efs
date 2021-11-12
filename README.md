@@ -1,23 +1,24 @@
-1. Install Serverless:
+# Setup
 
-npm install -g serverless
+**1. Install Serverless:**
 
-OR
+    npm install -g serverless
 
-curl -o- -L https://slss.io/install | bash
+*OR*
 
-OR (on Windows)
+    curl -o- -L https://slss.io/install | bash
 
-choco install serverless
+*OR (on Windows)*
 
-
-2. Install plugins:
-
-serverless plugin install --name serverless-lift
-
-serverless plugin install --name serverless-vpc-plugin
+    choco install serverless
 
 
-3. Configure your user credentials:
+**2. Install plugins:**
 
-serverless config credentials --provider aws --key 1234 --secret 5678
+    serverless plugin install --name serverless-lift
+    serverless plugin install --name serverless-vpc-plugin
+
+
+**3. Configure your user credentials:**
+
+    serverless config credentials --provider aws --key 1234 --secret 5678
