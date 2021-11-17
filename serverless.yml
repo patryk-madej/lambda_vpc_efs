@@ -1,4 +1,7 @@
 service: efs-proof-of-concept
+# add iam permissions section to easily add them
+# parametarise access/mount points for ease of use
+# add comments where changes should be made and where shouldn't
 
 provider:
   name: aws
