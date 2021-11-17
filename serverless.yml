@@ -1,7 +1,4 @@
 service: efs-proof-of-concept
-# add iam permissions section to easily add them
-# parametarise access/mount points for ease of use
-# add comments where changes should be made and where shouldn't
 
 provider:
   name: aws
@@ -13,7 +10,16 @@ provider:
     serverSideEncryption: AES256
     blockPublicAccess: true
 
+  iam: #CUSTOMISE: add services you want app to interact with
+    role:
+      statements:
+        - Effect: 'Allow'
+          Action:
+            - ssm:*
+          Resource: "*"
+
   environment: #shared
+    EFS_ACCESS_PATH: /mnt/efs0 #access point path
     QUEUE_URL: ${construct:my-queue.queueUrl}
 
 functions:
@@ -52,7 +58,7 @@ constructs:
 
 custom:
   vpcConfig:
-    cidrBlock: "10.0.0.0/16"
+    cidrBlock: "10.0.0.0/16" #CUSTOMISE - cannot overlap with other VPCs in the same region
     createDbSubnet: false
     createNatInstance: false
     createNatGateway: true
@@ -60,7 +66,7 @@ custom:
     zones:
       - ${self:provider.region}a #AppSubnet1
       - ${self:provider.region}b #AppSubnet2
-    services: 
+    services: #CUSTOMISE: add services for the app to interact with
       - sqs
 
 plugins:
@@ -76,4 +82,4 @@ package:
     - .dev/**
 
 resources:
-  - ${file(serverless_efs_cf.yml)} #efs and related resources defined with cloudformation
+  - ${file(serverless_efs_cf.yml)} #efs and related resources defined with cloudformation - no changes there should be needed

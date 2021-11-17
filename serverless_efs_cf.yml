@@ -90,4 +90,4 @@ Resources:
           OwnerGid: "1001"
           OwnerUid: "1001"
           Permissions: "0755"
-        Path: "/mnt/efs0"
+        Path: !Sub "${self:provider.environment.EFS_ACCESS_PATH}"
