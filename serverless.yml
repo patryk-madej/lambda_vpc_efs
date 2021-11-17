@@ -3,7 +3,6 @@ service: efs-proof-of-concept
 provider:
   name: aws
   runtime: python3.8
-  profile: patryk
   stage: ${opt:stage, 'dev'}
   region: ${opt:region, 'us-east-1'}
   versionFunctions: false
